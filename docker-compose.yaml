@@ -1,21 +1,30 @@
 services:
-  database:
-    image: esus_database:1.0.0
-    build: database
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB:-esus}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-esus}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-esus}"]
-      interval: 10s
-      retries: 5
-      start_period: 30s
-      timeout: 10s
-    restart: unless-stopped
+  # ==================================================================
+  # DATABASE - Banco de dados local (comentado para usar banco externo)
+  # ==================================================================
+  # Descomente esta seção se quiser usar banco local junto com a aplicação
+  # Comente se estiver usando PostgreSQL externo do Coolify
+  #
+  # database:
+  #   image: esus_database:1.0.0
+  #   build: database
+  #   environment:
+  #     - POSTGRES_DB=${POSTGRES_DB:-esus}
+  #     - POSTGRES_USER=${POSTGRES_USER:-postgres}
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-esus}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-esus}"]
+  #     interval: 10s
+  #     retries: 5
+  #     start_period: 30s
+  #     timeout: 10s
+  #   restart: unless-stopped
 
+  # ==================================================================
+  # WEBSERVER - Aplicação eSUS
+  # ==================================================================
   webserver:
     image: esus_webserver:5.2.31
     build:
@@ -23,16 +32,23 @@ services:
       args:
         - URL_DOWNLOAD_ESUS=${URL_DOWNLOAD_ESUS:-https://arquivos.esusab.ufsc.br/PEC/1af9b7ee9c3886bd/5.3.21/eSUS-AB-PEC-5.3.21-Linux64.jar}
     environment:
-      - APP_DB_URL=jdbc:postgresql://database:5432/${POSTGRES_DB:-esus}
-      - APP_DB_USER=${POSTGRES_USER:-postgres}
-      - APP_DB_PASSWORD=${POSTGRES_PASSWORD:-esus}
+      # Configuração do banco de dados
+      # Usar APP_DB_* para banco externo do Coolify
+      - APP_DB_URL=${APP_DB_URL:-jdbc:postgresql://database:5432/${POSTGRES_DB:-esus}}
+      - APP_DB_USER=${APP_DB_USER:-${POSTGRES_USER:-postgres}}
+      - APP_DB_PASSWORD=${APP_DB_PASSWORD:-${POSTGRES_PASSWORD:-esus}}
     expose:
       - "8080"
     labels:
-
-    depends_on:
-      database:
-        condition: service_healthy
+      - "traefik.enable=true"
+      - "traefik.http.routers.esus.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.esus.entrypoints=websecure"
+      - "traefik.http.routers.esus.tls.certresolver=letsencrypt"
+      - "traefik.http.services.esus.loadbalancer.server.port=8080"
+    # Comente depends_on se estiver usando banco externo
+    # depends_on:
+    #   database:
+    #     condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080 || exit 1"]
       interval: 30s
@@ -42,6 +58,7 @@ services:
     restart: unless-stopped
 
 
-volumes:
-  postgres_data:
-    driver: local
+# Comente se estiver usando banco externo
+# volumes:
+#   postgres_data:
+#     driver: local

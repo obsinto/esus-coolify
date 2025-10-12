@@ -1,149 +1,238 @@
-# eSUS-Docker
-Implantando o e-SUS PEC em container Docker
+# eSUS PEC - Docker para Coolify
 
-## Índice
-- [Implantação com Coolify (Recomendado)](#implantação-com-coolify-recomendado)
-- [Implantação Manual com Docker Compose](#implantação-manual-com-docker-compose)
-- [Gerando as imagens manualmente](#gerando-as-imagens-manualmente)
+Deploy do eSUS PEC usando Docker Compose no Coolify.
+
+## 📋 Requisitos
+
+- Coolify instalado
+- Acesso ao servidor via Coolify
+- Domínio configurado (opcional)
 
 ---
 
-## Implantação com Coolify (Recomendado)
+## 🚀 Como usar
 
-### Pré-requisitos
-- Instância do Coolify configurada e funcionando
-- Repositório Git com este projeto
+Este projeto suporta **duas formas de deploy**:
 
-### Passo a Passo
+### Opção 1: Banco Local (Tudo junto) ✅ Mais Simples
 
-1. **No Coolify, adicione um novo recurso:**
-   - Clique em "+ Add Resource"
-   - Selecione "Docker Compose"
-   - Conecte ao seu repositório Git
+Banco de dados e aplicação no mesmo docker-compose.
 
-2. **Configure as variáveis de ambiente:**
-   - O Coolify detectará automaticamente o `docker-compose.yml`
-   - Adicione as seguintes variáveis de ambiente no painel do Coolify:
+**1. Descomente o serviço `database` no `docker-compose.yaml`**
 
+Linhas 8-23, 49-51 e 62-64
+
+**2. No Coolify, configure:**
+```env
+DOMAIN=esus.seudominio.com.br
+POSTGRES_PASSWORD=SuaSenhaSegura123
+```
+
+**3. Deploy!**
+
+---
+
+### Opção 2: Banco Externo (PostgreSQL do Coolify) 🔗 Produção
+
+Banco de dados gerenciado separadamente pelo Coolify. **(Configuração atual)**
+
+**1. Crie PostgreSQL no Coolify**
+   - Add Resource → Database → PostgreSQL
+   - Anote o nome do container (ex: `rcs8ogo4cwcos44kk0gwgkog`)
+
+**2. No recurso da aplicação, linke o banco**
+   - Vá em "Storages & Databases" ou "Connected Services"
+   - Adicione/Linke o PostgreSQL criado
+
+**3. Configure as variáveis** (banco já comentado no docker-compose.yaml):
+```env
+DOMAIN=esus.seudominio.com.br
+APP_DB_URL=jdbc:postgresql://rcs8ogo4cwcos44kk0gwgkog:5432/postgres
+APP_DB_USER=postgres
+APP_DB_PASSWORD=SenhaDoPostgreSQL
+```
+
+**4. Deploy!**
+
+---
+
+## ⚙️ Variáveis de Ambiente
+
+### Banco Local (Opção 1):
+```env
+DOMAIN=esus.seudominio.com.br
+POSTGRES_PASSWORD=senha
+POSTGRES_USER=postgres           # Opcional, padrão: postgres
+POSTGRES_DB=esus                 # Opcional, padrão: esus
+```
+
+### Banco Externo (Opção 2 - Atual):
+```env
+DOMAIN=esus.seudominio.com.br
+APP_DB_URL=jdbc:postgresql://host:5432/database
+APP_DB_USER=postgres
+APP_DB_PASSWORD=senha
+```
+
+### Outras (Opcionais):
+```env
+URL_DOWNLOAD_ESUS=https://arquivos.esusab.ufsc.br/PEC/.../eSUS-AB-PEC-x.x.xx-Linux64.jar
+```
+
+---
+
+## 🌐 Configuração de Domínio
+
+O Traefik está configurado para gerar SSL automático via Let's Encrypt.
+
+**No Coolify:**
+1. Configure a variável `DOMAIN`
+2. Ou adicione o domínio na interface do Coolify
+
+**Resultado:**
+- Acesso: `https://esus.seudominio.com.br`
+- SSL automático
+- Sem necessidade de porta na URL
+
+---
+
+## 📊 Status da Aplicação
+
+### Primeira execução (~5-10 minutos):
+- Download do eSUS (~800MB)
+- Instalação e configuração
+- Criação do schema do banco
+- Migrações Liquibase
+
+### Reinicializações (~1-2 minutos):
+- Apenas startup do servidor
+
+### Verificar logs:
+No Coolify → Recurso → Logs
+
+Procure por:
+```
+✅ Conexão com banco de dados OK!
+=== Instalação concluída! ===
+=== Iniciando servidor eSUS ===
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### "Connection refused" ao banco
+
+**Causa:** Banco não acessível
+
+**Solução Banco Local:**
+- Descomente o serviço `database` no docker-compose.yaml (linhas 8-23)
+- Descomente `depends_on` no webserver (linhas 49-51)
+- Descomente `volumes: postgres_data` (linhas 62-64)
+
+**Solução Banco Externo:**
+- Certifique-se que o banco está linkado no Coolify
+- Verifique se o host está correto
+- Confirme que ambos estão no mesmo servidor
+
+### "Authentication failed"
+
+**Causa:** Senha incorreta
+
+**Solução:**
+- Verifique `APP_DB_PASSWORD` corresponde à senha do banco
+- Se banco local: `POSTGRES_PASSWORD` deve ser igual
+
+### Porta já alocada
+
+**Causa:** Porta 8080 em uso
+
+**Não é necessário configurar porta!** O Traefik faz o proxy automático via domínio.
+
+---
+
+## 📁 Estrutura do Projeto
+
+```
+.
+├── docker-compose.yaml       # Compose principal (banco comentado)
+├── database/                 # Dockerfile do PostgreSQL
+├── webserver/                # Dockerfile do eSUS
+│   ├── Dockerfile
+│   └── startup.sh           # Script de inicialização
+├── README.md                # Este arquivo
+└── *.md                     # Documentações adicionais
+```
+
+---
+
+## 🔄 Alternar entre Banco Local e Externo
+
+### Para usar Banco Local:
+
+1. **Descomente** no `docker-compose.yaml`:
+   - Serviço `database` (linhas 8-23)
+   - `depends_on` no webserver (linhas 49-51)
+   - `volumes: postgres_data` (linhas 62-64)
+
+2. **Configure**:
    ```env
-   POSTGRES_DB=esus
-   POSTGRES_USER=postgres
-   POSTGRES_PASSWORD=SuaSenhaSegura123
-   URL_DOWNLOAD_ESUS=https://arquivos.esusab.ufsc.br/PEC/1af9b7ee9c3886bd/5.3.21/eSUS-AB-PEC-5.3.21-Linux64.jar
+   DOMAIN=esus.seudominio.com.br
+   POSTGRES_PASSWORD=senha
    ```
 
-3. **Configure o domínio:**
-   - No Coolify, configure um domínio para o serviço `webserver`
-   - A porta padrão é `8080`
+3. **Redeploy**
 
-4. **Deploy:**
-   - Clique em "Deploy"
-   - O Coolify irá construir as imagens e iniciar os containers automaticamente
-   - Aguarde alguns minutos para o primeiro build (pode levar 5-10 minutos)
+### Para usar Banco Externo (Configuração atual):
 
-### Vantagens da implantação com Coolify
-- Gerenciamento automático de SSL/TLS
-- Backup automático de volumes
-- Rollback de deploys
-- Logs centralizados
-- Monitoramento integrado
-- Atualizações simplificadas
+1. **Mantenha comentado** (já está):
+   - Serviço `database`
+   - `depends_on`
+   - `volumes: postgres_data`
 
----
+2. **Configure**:
+   ```env
+   DOMAIN=esus.seudominio.com.br
+   APP_DB_URL=jdbc:postgresql://host:5432/db
+   APP_DB_USER=user
+   APP_DB_PASSWORD=senha
+   ```
 
-## Implantação Manual com Docker Compose
+3. **Linke o banco PostgreSQL no Coolify** (Storages & Databases)
 
-### Usando o script de build automático
-
-No diretório raiz do projeto execute o comando:
-```bash
-sudo sh build-service.sh
-```
-
-Este script irá:
-1. Criar a imagem e container do banco de dados
-2. Aguardar o banco de dados estar saudável
-3. Criar a imagem e container do webserver
-4. Aguardar o webserver estar disponível
-
-Após a conclusão, acesse: `http://localhost:8080`
-
-### Usando Docker Compose diretamente
-
-1. **Copie o arquivo de exemplo de variáveis:**
-```bash
-cp .env.example .env
-```
-
-2. **Edite o arquivo `.env` com suas configurações**
-
-3. **Suba os serviços:**
-```bash
-docker compose up -d
-```
+4. **Redeploy**
 
 ---
 
-## Gerando as imagens manualmente
+## 📚 Documentação Adicional
 
-### Imagem do Banco de Dados
-
-Entre na pasta database e execute:
-```bash
-sudo docker build -t esus_database:1.0.0 .
-```
-
-### Imagem do Webserver
-
-Primeiro, obtenha o link de download da versão do e-SUS PEC em: https://sisaps.saude.gov.br/esus/
-
-Entre na pasta webserver e execute:
-```bash
-sudo docker build \
-  --build-arg=URL_DOWNLOAD_ESUS=https://arquivos.esusab.ufsc.br/PEC/1af9b7ee9c3886bd/5.3.21/eSUS-AB-PEC-5.3.21-Linux64.jar \
-  --build-arg=APP_DB_URL=jdbc:postgresql://database:5432/esus \
-  --build-arg=APP_DB_USER=postgres \
-  --build-arg=APP_DB_PASSWORD=esus \
-  -t esus_webserver:5.2.31 .
-```
+- **COOLIFY-SETUP.md** - Guia detalhado de configuração (descontinuado - use este README)
+- **TROUBLESHOOTING.md** - Resolução de problemas
+- **CHANGELOG.md** - Histórico de mudanças
+- **CONFIGURAR-DOMINIO.md** - Configuração de domínio
+- **DEBUG-PASSWORD-ISSUES.md** - Debug de problemas de senha
 
 ---
 
-## Observações Importantes
+## 🤝 Contribuindo
 
-- **Persistência de dados:** O volume `postgres_data` garante que os dados do banco não sejam perdidos
-- **Segurança:** Altere as senhas padrão em produção
-- **Portas:** Por padrão, o PostgreSQL usa a porta 5432 e o webserver a porta 8080
-- **Healthchecks:** Os containers têm verificações de saúde configuradas para garantir disponibilidade
-- **Restart policy:** Os containers reiniciam automaticamente em caso de falha
+Contribuições são bem-vindas! Abra issues ou PRs.
 
 ---
 
-## Atualizando para nova versão do e-SUS
+## 📝 Licença
 
-1. Atualize a variável `URL_DOWNLOAD_ESUS` com o link da nova versão
-2. Execute novamente o build:
-```bash
-docker compose build webserver
-docker compose up -d webserver
-```
+Este projeto é fornecido "como está" para facilitar o deploy do eSUS PEC.
+
+O eSUS PEC é um software do Ministério da Saúde do Brasil.
 
 ---
 
-## Solução de Problemas
+## 🆘 Suporte
 
-### Container do banco não inicia
-```bash
-docker compose logs database
-```
+- Issues: [GitHub Issues](https://github.com/obsinto/esus-coolify/issues)
+- Documentação oficial do eSUS: https://aps.saude.gov.br/ape/esus
 
-### Container do webserver não inicia
-```bash
-docker compose logs webserver
-```
+---
 
-### Resetar completamente o ambiente
-```bash
-docker compose down -v
-docker compose up -d
-```
+**Desenvolvido para facilitar o deploy do eSUS PEC no Coolify** 🚀
