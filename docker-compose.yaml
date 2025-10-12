@@ -33,7 +33,7 @@ services:
     networks:
       esus_network:
     ports:
-      - "${WEB_PORT:-8080}:8090"
+      - "${WEB_PORT:-8081}:8090"
     restart: unless-stopped
     privileged: true
     depends_on:
@@ -41,7 +41,7 @@ services:
         condition: service_healthy
 
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080 || curl -sf http://localhost:8090"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081 || curl -sf http://localhost:8090"]
       interval: 10s
       retries: 5
       start_period: 30s
