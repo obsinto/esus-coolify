@@ -29,11 +29,7 @@ services:
     expose:
       - "8080"
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.esus.rule=Host(`${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.esus.entrypoints=websecure"
-      - "traefik.http.routers.esus.tls.certresolver=letsencrypt"
-      - "traefik.http.services.esus.loadbalancer.server.port=8080"
+
     depends_on:
       database:
         condition: service_healthy
