@@ -20,9 +20,11 @@ deb-src http://deb.debian.org/debian bullseye-updates main contrib non-free
 EOF
 RUN apt update
 RUN apt-get install -y ttf-mscorefonts-installer
-#Instala o init e o file porque o instalador do ESUS executa esses comandos.
+#Instala dependências necessárias
 RUN apt-get install -y init
 RUN apt-get install -y file
+RUN apt-get install -y postgresql-client
+RUN apt-get install -y curl
 RUN apt clean
 
 #Define o fuso horário, coloque o fuso horário de sua região.
@@ -37,11 +39,10 @@ RUN chmod +x /opt/startup.sh
 
 WORKDIR /home/downloads
 RUN wget -O eSUS-AB-PEC.jar ${URL_DOWNLOAD_ESUS} --no-check-certificate
-RUN echo "s" | java -jar eSUS-AB-PEC.jar -console -url=${APP_DB_URL} -username=${APP_DB_USER} -password=${APP_DB_PASSWORD}
-#Extrai o migrador do banco de dados para ser executado na inicialização.
-RUN jar xf eSUS-AB-PEC.jar
-RUN cp container/database/migrador.jar /opt/e-SUS
-#Limpa os aquivos baixados e extraídos.
-RUN rm -r /home/downloads/*
+
+# NÃO instalar o eSUS durante o build (banco não está disponível)
+# A instalação será feita no startup.sh na primeira execução
+# Apenas preservar o JAR para instalação posterior
+
 EXPOSE 8080
 ENTRYPOINT ["/opt/startup.sh"]
