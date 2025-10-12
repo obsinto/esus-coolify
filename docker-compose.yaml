@@ -40,11 +40,7 @@ services:
     expose:
       - "8080"
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.esus.rule=Host(`${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.esus.entrypoints=websecure"
-      - "traefik.http.routers.esus.tls.certresolver=letsencrypt"
-      - "traefik.http.services.esus.loadbalancer.server.port=8080"
+
     # Comente depends_on se estiver usando banco externo
     # depends_on:
     #   database:
