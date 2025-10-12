@@ -1,54 +1,29 @@
 services:
-  database:
-    # container_name removed for multi-instance deploys
-    build: database
-    environment:
-      - POSTGRES_DB=esus
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=esus
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    networks:
-      - esus_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      retries: 5
-      start_period: 30s
-      timeout: 10s
   webserver:
-    # container_name removed for multi-instance deploys
     build:
       context: webserver
       args:
         - URL_DOWNLOAD_ESUS=${URL_DOWNLOAD_ESUS:-https://arquivos.esusab.ufsc.br/PEC/26e603822f8adcc4/5.3.28/eSUS-AB-PEC-5.3.28-Linux64.jar}
     environment:
-      - APP_DB_URL=jdbc:postgresql://database:5432/esus
-      - APP_DB_USER=postgres
-      - APP_DB_PASSWORD=esus
+      # URL do banco de dados externo (PostgreSQL criado pelo Coolify)
+      # Use o internal domain do banco criado no painel do Coolify
+      # Formato: jdbc:postgresql://HOST:PORTA/DATABASE
+      - APP_DB_URL=${APP_DB_URL}
+      - APP_DB_USER=${APP_DB_USER}
+      - APP_DB_PASSWORD=${APP_DB_PASSWORD}
     volumes:
       - web_data:/opt/e-SUS
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
-    networks:
-      esus_network:
     ports:
       - "${WEB_PORT:-8081}:8090"
     restart: unless-stopped
     privileged: true
-    depends_on:
-      database:
-        condition: service_healthy
-
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8081 || curl -sf http://localhost:8090"]
       interval: 10s
       retries: 5
       start_period: 30s
       timeout: 10s
-networks:
-  esus_network:
-    driver: bridge
+
 volumes:
-  db_data:
   web_data:
