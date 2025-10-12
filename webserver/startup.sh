@@ -4,33 +4,9 @@ set -e
 echo "=== eSUS Startup Script ==="
 
 # Configurações do banco de dados via variáveis de ambiente
-# Opção 1: URL JDBC diretamente (APP_DB_URL)
-# Opção 2: URL PostgreSQL do Coolify (POSTGRES_URL) - será convertida
-if [ -n "$POSTGRES_URL" ]; then
-  echo "Detectada URL PostgreSQL do Coolify, convertendo para JDBC..."
-
-  # Extrair componentes da URL: postgres://user:pass@host:port/db
-  DB_USER=$(echo "$POSTGRES_URL" | sed -n 's|postgres://\([^:]*\):.*|\1|p')
-  DB_PASSWORD=$(echo "$POSTGRES_URL" | sed -n 's|postgres://[^:]*:\([^@]*\)@.*|\1|p')
-  DB_HOST_TEMP=$(echo "$POSTGRES_URL" | sed -n 's|postgres://[^@]*@\([^:]*\):.*|\1|p')
-  DB_PORT_TEMP=$(echo "$POSTGRES_URL" | sed -n 's|postgres://[^@]*@[^:]*:\([^/]*\)/.*|\1|p')
-  DB_NAME_TEMP=$(echo "$POSTGRES_URL" | sed -n 's|postgres://[^/]*/\([^?]*\).*|\1|p')
-
-  # Montar URL JDBC
-  DB_URL="jdbc:postgresql://${DB_HOST_TEMP}:${DB_PORT_TEMP}/${DB_NAME_TEMP}"
-
-  echo "URL JDBC gerada: ${DB_URL}"
-  echo "Usuário: ${DB_USER}"
-  echo "Senha: [${#DB_PASSWORD} caracteres]"
-elif [ -n "$APP_DB_URL" ]; then
-  DB_URL="${APP_DB_URL}"
-  DB_USER="${APP_DB_USER:-}"
-  DB_PASSWORD="${APP_DB_PASSWORD:-}"
-else
-  DB_URL=""
-  DB_USER=""
-  DB_PASSWORD=""
-fi
+DB_URL="${APP_DB_URL:-}"
+DB_USER="${APP_DB_USER:-}"
+DB_PASSWORD="${APP_DB_PASSWORD:-}"
 
 # Se as variáveis não existem, tentar ler do application.properties
 CONFIG_FILE="/opt/e-SUS/webserver/config/application.properties"
