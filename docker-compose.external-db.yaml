@@ -1,0 +1,35 @@
+services:
+  webserver:
+    image: esus_webserver:5.2.31
+    build:
+      context: webserver
+      args:
+        - URL_DOWNLOAD_ESUS=${URL_DOWNLOAD_ESUS:-https://arquivos.esusab.ufsc.br/PEC/1af9b7ee9c3886bd/5.3.21/eSUS-AB-PEC-5.3.21-Linux64.jar}
+    environment:
+      # Use a URL JDBC diretamente OU deixe o script converter da URL PostgreSQL
+      # Opção 1: URL JDBC completa (recomendado)
+      - APP_DB_URL=${APP_DB_URL}
+      - APP_DB_USER=${APP_DB_USER}
+      - APP_DB_PASSWORD=${APP_DB_PASSWORD}
+
+      # Opção 2: URL PostgreSQL do Coolify (será convertida automaticamente)
+      # Formato: postgres://user:password@host:port/database
+      - POSTGRES_URL=${POSTGRES_URL:-}
+    expose:
+      - "8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.esus.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.esus.entrypoints=websecure"
+      - "traefik.http.routers.esus.tls.certresolver=letsencrypt"
+      - "traefik.http.services.esus.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080 || exit 1"]
+      interval: 30s
+      retries: 5
+      start_period: 120s
+      timeout: 10s
+    restart: unless-stopped
+
+volumes:
+  web_data:

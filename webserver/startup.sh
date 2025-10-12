@@ -3,11 +3,39 @@ set -e
 
 echo "=== eSUS Startup Script ==="
 
-# Configurações do banco de dados via variáveis de ambiente (BUILD ARGS)
-# Essas variáveis são passadas durante o build do Docker
-DB_URL="${APP_DB_URL:-}"
-DB_USER="${APP_DB_USER:-}"
-DB_PASSWORD="${APP_DB_PASSWORD:-}"
+# Função para converter URL PostgreSQL em JDBC
+convert_postgres_url() {
+  local pg_url="$1"
+
+  # Extrair componentes da URL: postgres://user:pass@host:port/db
+  local user=$(echo "$pg_url" | sed -n 's|postgres://\([^:]*\):.*|\1|p')
+  local password=$(echo "$pg_url" | sed -n 's|postgres://[^:]*:\([^@]*\)@.*|\1|p')
+  local host=$(echo "$pg_url" | sed -n 's|postgres://[^@]*@\([^:]*\):.*|\1|p')
+  local port=$(echo "$pg_url" | sed -n 's|postgres://[^@]*@[^:]*:\([^/]*\)/.*|\1|p')
+  local database=$(echo "$pg_url" | sed -n 's|postgres://[^/]*/\([^?]*\).*|\1|p')
+
+  # Retornar no formato JDBC
+  echo "jdbc:postgresql://${host}:${port}/${database}"
+  export DB_USER="$user"
+  export DB_PASSWORD="$password"
+}
+
+# Configurações do banco de dados via variáveis de ambiente
+# Opção 1: URL JDBC diretamente (APP_DB_URL)
+# Opção 2: URL PostgreSQL do Coolify (POSTGRES_URL) - será convertida
+if [ -n "$POSTGRES_URL" ]; then
+  echo "Detectada URL PostgreSQL do Coolify, convertendo para JDBC..."
+  DB_URL=$(convert_postgres_url "$POSTGRES_URL")
+  echo "URL JDBC gerada: ${DB_URL}"
+elif [ -n "$APP_DB_URL" ]; then
+  DB_URL="${APP_DB_URL}"
+  DB_USER="${APP_DB_USER:-}"
+  DB_PASSWORD="${APP_DB_PASSWORD:-}"
+else
+  DB_URL=""
+  DB_USER=""
+  DB_PASSWORD=""
+fi
 
 # Se as variáveis não existem, tentar ler do application.properties
 CONFIG_FILE="/opt/e-SUS/webserver/config/application.properties"
