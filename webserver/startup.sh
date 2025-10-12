@@ -31,6 +31,63 @@ fi
 echo "Database URL = ${DB_URL}"
 echo "Username = ${DB_USER}"
 
+# Validar configurações do banco de dados
+if [ -z "$DB_URL" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASSWORD" ]; then
+  echo "ERRO: Variáveis de banco de dados não configuradas!"
+  echo "  APP_DB_URL: ${DB_URL}"
+  echo "  APP_DB_USER: ${DB_USER}"
+  echo "  APP_DB_PASSWORD: [${DB_PASSWORD:+configured}${DB_PASSWORD:-NOT SET}]"
+  exit 1
+fi
+
+# Extrair host do banco de dados da URL JDBC
+DB_HOST=$(echo "$DB_URL" | sed 's/.*:\/\/\([^:\/]*\).*/\1/')
+DB_PORT=$(echo "$DB_URL" | sed 's/.*:\([0-9]*\)\/.*/\1/')
+DB_NAME=$(echo "$DB_URL" | sed 's/.*\/\([^?]*\).*/\1/')
+
+echo "=== Testando conexão com o banco de dados ==="
+echo "Host: ${DB_HOST}"
+echo "Port: ${DB_PORT}"
+echo "Database: ${DB_NAME}"
+
+# Aguardar e testar conexão com o banco
+MAX_ATTEMPTS=30
+ATTEMPT=0
+CONNECTION_OK=false
+
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+  ATTEMPT=$((ATTEMPT + 1))
+  echo "Tentativa $ATTEMPT/$MAX_ATTEMPTS - Testando conexão..."
+
+  if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" > /dev/null 2>&1; then
+    echo "✅ Conexão com banco de dados OK!"
+    CONNECTION_OK=true
+    break
+  fi
+
+  if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+    echo "⏳ Banco ainda não disponível, aguardando 2 segundos..."
+    sleep 2
+  fi
+done
+
+if [ "$CONNECTION_OK" = false ]; then
+  echo ""
+  echo "❌ ERRO: Não foi possível conectar ao banco de dados após $MAX_ATTEMPTS tentativas!"
+  echo ""
+  echo "Verifique:"
+  echo "  1. O serviço do banco de dados está rodando?"
+  echo "  2. As credenciais estão corretas?"
+  echo "  3. O host/porta estão corretos?"
+  echo ""
+  echo "Configuração atual:"
+  echo "  URL: ${DB_URL}"
+  echo "  User: ${DB_USER}"
+  echo "  Host: ${DB_HOST}:${DB_PORT}"
+  echo "  Database: ${DB_NAME}"
+  exit 1
+fi
+
 # Verificar se o eSUS está instalado
 if [ ! -f "/opt/e-SUS/webserver/standalone.sh" ]; then
   echo "=== eSUS não instalado. Iniciando instalação... ==="
@@ -41,18 +98,7 @@ if [ ! -f "/opt/e-SUS/webserver/standalone.sh" ]; then
     exit 1
   fi
 
-  # Aguardar o banco de dados estar pronto
-  echo "Aguardando banco de dados estar disponível..."
-  for i in $(seq 1 30); do
-    if pg_isready -h "$(echo $DB_URL | sed 's/.*\/\/\([^:]*\).*/\1/')" -U "$DB_USER" > /dev/null 2>&1; then
-      echo "Banco de dados disponível!"
-      break
-    fi
-    echo "Tentativa $i/30 - Aguardando banco..."
-    sleep 2
-  done
-
-  # Instalar o eSUS
+  # Instalar o eSUS (banco já foi testado acima)
   cd /home/downloads
   echo "Instalando eSUS com banco de dados: ${DB_URL}"
   echo "s" | java -jar eSUS-AB-PEC.jar -console \
