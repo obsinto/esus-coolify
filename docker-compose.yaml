@@ -39,8 +39,6 @@ services:
       - APP_DB_PASSWORD=${APP_DB_PASSWORD:-${POSTGRES_PASSWORD:-esus}}
     expose:
       - "8080"
-    labels:
-
     networks:
       - coolify
     # Comente depends_on se estiver usando banco externo
