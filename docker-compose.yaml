@@ -45,6 +45,8 @@ services:
       - "traefik.http.routers.esus.entrypoints=websecure"
       - "traefik.http.routers.esus.tls.certresolver=letsencrypt"
       - "traefik.http.services.esus.loadbalancer.server.port=8080"
+    networks:
+      - coolify
     # Comente depends_on se estiver usando banco externo
     # depends_on:
     #   database:
@@ -62,3 +64,9 @@ services:
 # volumes:
 #   postgres_data:
 #     driver: local
+
+# Redes para conectar ao PostgreSQL externo do Coolify
+networks:
+  coolify:
+    name: coolify
+    external: true
