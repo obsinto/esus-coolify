@@ -3,7 +3,8 @@ set -e
 
 echo "=== eSUS Startup Script ==="
 
-# Configurações do banco de dados via variáveis de ambiente
+# Configurações do banco de dados via variáveis de ambiente (BUILD ARGS)
+# Essas variáveis são passadas durante o build do Docker
 DB_URL="${APP_DB_URL:-}"
 DB_USER="${APP_DB_USER:-}"
 DB_PASSWORD="${APP_DB_PASSWORD:-}"
