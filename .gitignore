@@ -1,0 +1,9 @@
+# Backups automáticos
+backups/
+*.backup
+
+# Variáveis de ambiente locais
+.env
+
+# Logs
+*.log

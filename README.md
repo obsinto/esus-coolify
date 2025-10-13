@@ -126,7 +126,194 @@ sudo docker build \
 
 ## Backup e Restauração do Banco de Dados
 
-### Criando um backup
+### Backups Automáticos (Recomendado)
+
+O sistema está configurado para realizar backups automáticos diários **salvos diretamente no host**:
+
+**Características:**
+- ⏰ **Execução**: Todos os dias à meia-noite (00:00)
+- 📦 **Retenção**: Configurável via `BACKUP_RETENTION_DAYS` (padrão: 7 dias)
+- 💾 **Localização no host**: Configurável via `BACKUP_DIR` (padrão: `./backups`)
+- 🗑️ **Limpeza automática**: Remove backups mais antigos que RETENTION_DAYS
+- 📋 **Logs**: Disponíveis em `/var/log/cron.log` no container
+
+**Configuração no `.env` ou Coolify:**
+```env
+# Diretório no host onde salvar backups (relativo ou absoluto)
+BACKUP_DIR=./backups
+
+# Número de dias para manter backups (mais antigos são removidos)
+BACKUP_RETENTION_DAYS=7
+```
+
+**Exemplos de BACKUP_DIR:**
+```env
+# Caminho relativo (dentro do diretório do projeto)
+BACKUP_DIR=./backups
+
+# Caminho absoluto no VPS/host
+BACKUP_DIR=/mnt/storage/esus-backups
+
+# No Coolify, pode usar um volume persistente
+BACKUP_DIR=/data/coolify/backups/esus
+```
+
+**Verificar backups no host:**
+```bash
+# Listar backups (diretamente no host)
+ls -lh ./backups/
+
+# Ver dentro do container (mesmo diretório via bind mount)
+docker compose exec database ls -lh /backups
+
+# Ver logs dos backups
+docker compose exec database cat /var/log/cron.log
+
+# Verificar se o cron está rodando
+docker compose exec database ps | grep crond
+```
+
+**Executar backup manual:**
+```bash
+docker compose exec database /usr/local/bin/backup.sh
+```
+
+**Acesso aos backups:**
+
+Os backups ficam **diretamente acessíveis no host** no diretório configurado (padrão `./backups`), não sendo necessário copiar do container. Você pode:
+- Fazer backup deles para outro servidor
+- Sincronizar com cloud (AWS S3, Google Drive, etc)
+- Acessar via SFTP/SCP
+- Incluir em backup de sistema
+
+**Desabilitar backups automáticos:**
+
+Se você NÃO quiser backups automáticos, comente a linha no `database/Dockerfile`:
+```dockerfile
+# COPY init-cron.sh /docker-entrypoint-initdb.d/init-cron.sh
+```
+
+---
+
+### Backups Automáticos para S3 (AWS/MinIO/Wasabi)
+
+O sistema suporta envio automático de backups para **Amazon S3** ou serviços compatíveis (MinIO, Wasabi, DigitalOcean Spaces, etc).
+
+**Pré-requisitos:**
+
+1. **Habilitar AWS CLI** no `database/Dockerfile` (descomente as linhas 9-12):
+```dockerfile
+# Antes (comentado):
+# RUN apk add --no-cache python3 py3-pip && \
+#     pip3 install --upgrade pip && \
+#     pip3 install awscli && \
+#     rm -rf /var/cache/apk/*
+
+# Depois (descomentado):
+RUN apk add --no-cache python3 py3-pip && \
+    pip3 install --upgrade pip && \
+    pip3 install awscli && \
+    rm -rf /var/cache/apk/*
+```
+
+2. **Configurar variáveis de ambiente** no `.env` ou Coolify:
+
+**Para AWS S3:**
+```env
+# Bucket S3
+S3_BUCKET=meu-bucket-esus-backups
+
+# Região AWS
+AWS_DEFAULT_REGION=us-east-1
+
+# Credenciais AWS (crie um usuário IAM com permissões s3:PutObject, s3:GetObject, s3:DeleteObject)
+AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+```
+
+**Para serviços S3-compatible (MinIO, Wasabi, etc):**
+```env
+S3_BUCKET=meu-bucket
+AWS_DEFAULT_REGION=us-east-1
+AWS_ACCESS_KEY_ID=sua_access_key
+AWS_SECRET_ACCESS_KEY=sua_secret_key
+
+# Endpoint customizado (obrigatório para serviços não-AWS)
+AWS_ENDPOINT_URL=https://s3.wasabisys.com
+# ou para MinIO local: http://minio:9000
+```
+
+**Como funciona:**
+
+1. Backup é criado localmente em `/backups` (host)
+2. Se `S3_BUCKET` estiver configurado, o backup é automaticamente enviado para S3
+3. Backups antigos são removidos **tanto no host quanto no S3** respeitando `BACKUP_RETENTION_DAYS`
+4. Logs mostram o status do upload: `docker compose exec database cat /var/log/cron.log`
+
+**Exemplo de log com S3:**
+```
+=== Iniciando backup automático ===
+✅ Backup criado com sucesso: /backups/backup_2025_01_15__00_00_00.backup
+Tamanho do backup: 245M
+
+=== Enviando backup para S3 ===
+Bucket: meu-bucket-esus-backups
+Região: us-east-1
+✅ Backup enviado para S3: s3://meu-bucket-esus-backups/esus-backups/backup_2025_01_15__00_00_00.backup
+
+=== Limpando backups antigos no S3 ===
+Removendo backup antigo do S3: backup_2025_01_08__00_00_00.backup
+```
+
+**Permissões IAM necessárias (AWS):**
+
+Crie um usuário IAM com esta política:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::meu-bucket-esus-backups",
+        "arn:aws:s3:::meu-bucket-esus-backups/*"
+      ]
+    }
+  ]
+}
+```
+
+**Restaurar backup do S3:**
+```bash
+# Listar backups no S3
+aws s3 ls s3://meu-bucket-esus-backups/esus-backups/
+
+# Baixar backup específico
+aws s3 cp s3://meu-bucket-esus-backups/esus-backups/backup_2025_01_15__00_00_00.backup ./
+
+# Copiar para o container e restaurar
+docker compose cp backup_2025_01_15__00_00_00.backup database:/tmp/
+docker compose exec database pg_restore -U "postgres" -d "esus" -c /tmp/backup_2025_01_15__00_00_00.backup
+```
+
+**Rebuild necessário:**
+
+Após descomentar as linhas do AWS CLI no Dockerfile, faça rebuild:
+```bash
+docker compose down database
+docker compose build database
+docker compose up -d database
+```
+
+---
+
+### Criando backups manuais
 
 **Backup do banco PostgreSQL (formato custom - recomendado):**
 ```bash
@@ -145,7 +332,16 @@ docker compose cp database:/var/lib/postgresql/data/backup_YYYY_MM_DD__HH_MM_SS.
 
 ### Restaurando um backup
 
-**Restaurar backup formato custom:**
+**Restaurar backup automático:**
+```bash
+# Listar backups disponíveis
+docker compose exec database ls -lh /backups
+
+# Restaurar um backup específico
+docker compose exec database pg_restore -U "postgres" -d "esus" -c /backups/backup_YYYY_MM_DD__HH_MM_SS.backup
+```
+
+**Restaurar backup manual formato custom:**
 ```bash
 docker compose exec database bash -c 'pg_restore -U "postgres" -d "esus" -c /var/lib/postgresql/data/seu_arquivo.backup'
 ```

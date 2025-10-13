@@ -57,11 +57,43 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=SuaSenhaSegura123
 URL_DOWNLOAD_ESUS=https://arquivos.esusab.ufsc.br/PEC/26e603822f8adcc4/5.3.28/eSUS-AB-PEC-5.3.28-Linux64.jar
 ESUS_TRAINING_MODE=false
+BACKUP_DIR=/data/coolify/backups/esus
+BACKUP_RETENTION_DAYS=7
 ```
 
-**Sobre ESUS_TRAINING_MODE:**
-- `false` (padrão): Instalação de **Produção** com dados reais
-- `true`: Instalação de **Treinamento** para capacitação e testes
+**Sobre as variáveis:**
+- **ESUS_TRAINING_MODE:**
+  - `false` (padrão): Instalação de **Produção** com dados reais
+  - `true`: Instalação de **Treinamento** para capacitação e testes
+
+- **BACKUP_DIR:** Diretório no servidor onde os backups serão salvos
+  - Use um caminho absoluto no servidor Coolify
+  - Exemplo: `/data/coolify/backups/esus`
+  - Os backups ficam diretamente acessíveis no host
+
+- **BACKUP_RETENTION_DAYS:** Número de dias de retenção (padrão: 7)
+  - Backups mais antigos são removidos automaticamente
+
+### Backups S3 no Coolify (Opcional)
+
+Para habilitar backups automáticos no S3:
+
+1. **Descomente as linhas do AWS CLI** no `database/Dockerfile` (linhas 9-12)
+2. **Adicione as variáveis S3** no Coolify:
+
+```env
+S3_BUCKET=meu-bucket-backups
+AWS_DEFAULT_REGION=us-east-1
+AWS_ACCESS_KEY_ID=sua_access_key
+AWS_SECRET_ACCESS_KEY=sua_secret_key
+# Para serviços S3-compatible (MinIO, Wasabi):
+AWS_ENDPOINT_URL=https://s3.wasabisys.com
+```
+
+3. **Faça commit e push** das alterações no Dockerfile
+4. **Redeploy** no Coolify
+
+Os backups serão salvos tanto no host (`BACKUP_DIR`) quanto no S3 automaticamente.
 
 ### O que o docker-compose.yaml faz automaticamente:
 
