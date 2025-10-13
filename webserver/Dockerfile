@@ -40,6 +40,9 @@ RUN chmod +x /opt/startup.sh
 WORKDIR /home/downloads
 RUN wget -O eSUS-AB-PEC.jar ${URL_DOWNLOAD_ESUS} --no-check-certificate
 
+# Criar diretório do eSUS antes da instalação
+RUN mkdir -p /opt/e-SUS
+
 # NÃO instalar o eSUS durante o build (banco não está disponível)
 # A instalação será feita no startup.sh na primeira execução
 # Apenas preservar o JAR para instalação posterior
