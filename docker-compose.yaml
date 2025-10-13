@@ -26,6 +26,7 @@ services:
       - APP_DB_URL=jdbc:postgresql://database:5432/${POSTGRES_DB:-esus}
       - APP_DB_USER=${POSTGRES_USER:-postgres}
       - APP_DB_PASSWORD=${POSTGRES_PASSWORD:-esus}
+      - ESUS_TRAINING_MODE=${ESUS_TRAINING_MODE:-false}
     expose:
       - "8080"
     labels:

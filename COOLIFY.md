@@ -56,7 +56,12 @@ POSTGRES_DB=esus
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=SuaSenhaSegura123
 URL_DOWNLOAD_ESUS=https://arquivos.esusab.ufsc.br/PEC/26e603822f8adcc4/5.3.28/eSUS-AB-PEC-5.3.28-Linux64.jar
+ESUS_TRAINING_MODE=false
 ```
+
+**Sobre ESUS_TRAINING_MODE:**
+- `false` (padrão): Instalação de **Produção** com dados reais
+- `true`: Instalação de **Treinamento** para capacitação e testes
 
 ### O que o docker-compose.yaml faz automaticamente:
 

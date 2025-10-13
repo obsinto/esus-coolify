@@ -30,7 +30,12 @@ Implantando o e-SUS PEC em container Docker
    POSTGRES_USER=postgres
    POSTGRES_PASSWORD=SuaSenhaSegura123
    URL_DOWNLOAD_ESUS=https://arquivos.esusab.ufsc.br/PEC/1af9b7ee9c3886bd/5.3.21/eSUS-AB-PEC-5.3.21-Linux64.jar
+   ESUS_TRAINING_MODE=false
    ```
+
+   **Nota sobre ESUS_TRAINING_MODE:**
+   - `false` (padrão): Instalação de **Produção** - para uso com dados reais
+   - `true`: Instalação de **Treinamento** - para capacitação e testes
 
 3. **Configure o domínio:**
    - No Coolify, configure um domínio para o serviço `webserver`
@@ -119,14 +124,161 @@ sudo docker build \
 
 ---
 
-## Atualizando para nova versão do e-SUS
+## Backup e Restauração do Banco de Dados
 
-1. Atualize a variável `URL_DOWNLOAD_ESUS` com o link da nova versão
-2. Execute novamente o build:
+### Criando um backup
+
+**Backup do banco PostgreSQL (formato custom - recomendado):**
 ```bash
+docker compose exec database bash -c 'pg_dump --host localhost --port 5432 -U "postgres" --format custom --blobs --encoding UTF8 --no-privileges --no-tablespaces --no-unlogged-table-data --file "/var/lib/postgresql/data/backup_$(date +"%Y_%m_%d__%H_%M_%S").backup" "esus"'
+```
+
+**Backup em formato SQL (alternativa):**
+```bash
+docker compose exec database bash -c 'pg_dump -U "postgres" "esus" > /var/lib/postgresql/data/backup_$(date +"%Y_%m_%d__%H_%M_%S").sql'
+```
+
+**Copiar backup para o host:**
+```bash
+docker compose cp database:/var/lib/postgresql/data/backup_YYYY_MM_DD__HH_MM_SS.backup ./backup_YYYY_MM_DD__HH_MM_SS.backup
+```
+
+### Restaurando um backup
+
+**Restaurar backup formato custom:**
+```bash
+docker compose exec database bash -c 'pg_restore -U "postgres" -d "esus" -c /var/lib/postgresql/data/seu_arquivo.backup'
+```
+
+**Restaurar backup formato SQL:**
+```bash
+docker compose exec database bash -c 'psql -U "postgres" "esus" < /var/lib/postgresql/data/seu_arquivo.sql'
+```
+
+---
+
+## Migração e Atualização de Versão do e-SUS PEC
+
+### Verificação de Persistência dos Dados
+
+Antes de qualquer atualização, verifique se o volume do banco de dados está persistindo corretamente:
+
+```bash
+# Verificar volumes Docker
+docker volume ls | grep postgres
+
+# Inspecionar o volume
+docker volume inspect esus-docker_postgres_data
+
+# Verificar o tamanho do volume (deve ter dados)
+docker compose exec database bash -c 'du -sh /var/lib/postgresql/data'
+```
+
+### Processo de Atualização Segura
+
+**Importante:** Segundo a equipe do e-SUS PEC, a migração do banco de dados em Linux pode ter menos verificações que no Windows. Sempre faça backup antes de atualizar.
+
+#### Passo 1: Criar backup completo
+
+```bash
+# Criar backup do banco de dados
+docker compose exec database bash -c 'pg_dump --host localhost --port 5432 -U "postgres" --format custom --blobs --encoding UTF8 --no-privileges --no-tablespaces --no-unlogged-table-data --file "/var/lib/postgresql/data/backup_pre_update_$(date +"%Y_%m_%d__%H_%M_%S").backup" "esus"'
+
+# Copiar backup para o host
+docker compose cp database:/var/lib/postgresql/data/backup_pre_update_*.backup ./
+```
+
+#### Passo 2: Verificar a versão atual
+
+```bash
+# Ver logs do container para identificar a versão instalada
+docker compose logs webserver | grep -i "versão\|version"
+```
+
+#### Passo 3: Atualizar para nova versão
+
+1. **Obtenha o link da nova versão** em: https://sisaps.saude.gov.br/esus/
+
+2. **Atualize a variável de ambiente:**
+   - No Coolify: Edite a variável `URL_DOWNLOAD_ESUS` na interface
+   - Local: Edite o arquivo `.env`
+
+   ```env
+   URL_DOWNLOAD_ESUS=https://arquivos.esusab.ufsc.br/PEC/nova_versao/eSUS-AB-PEC-X.X.XX-Linux64.jar
+   ```
+
+3. **Para instalação local:**
+   ```bash
+   # Parar o webserver
+   docker compose stop webserver
+
+   # Remover o container antigo (não remove o volume)
+   docker compose rm -f webserver
+
+   # Rebuild com a nova versão
+   docker compose build webserver
+
+   # Iniciar o webserver
+   docker compose up -d webserver
+   ```
+
+4. **Para Coolify:**
+   - Faça commit das alterações no Git
+   - Faça push para o repositório
+   - Ou clique em "Redeploy" no Coolify após alterar a variável
+
+#### Passo 4: Acompanhar a migração
+
+```bash
+# Acompanhar logs em tempo real
+docker compose logs -f webserver
+
+# Procurar por mensagens de migração
+docker compose logs webserver | grep -i "migra\|atualiz\|update"
+```
+
+A migração do banco acontece automaticamente através do `migrador.jar` (webserver/startup.sh:118-126)
+
+#### Passo 5: Validar a atualização
+
+```bash
+# Verificar se o webserver está saudável
+docker compose ps
+
+# Testar acesso à aplicação
+curl -I http://localhost:8080
+
+# Verificar logs por erros
+docker compose logs webserver | grep -i "error\|erro"
+```
+
+### Em caso de problemas na atualização
+
+Se a migração falhar ou houver problemas:
+
+```bash
+# Parar todos os serviços
+docker compose down
+
+# Restaurar o backup
+docker compose up -d database
+
+# Aguardar o banco estar pronto
+sleep 10
+
+# Restaurar o backup (substituir o nome do arquivo)
+docker compose exec database bash -c 'pg_restore -U "postgres" -d "esus" -c /var/lib/postgresql/data/backup_pre_update_*.backup'
+
+# Reverter para a versão anterior no .env
+# Depois rebuildar o webserver com a versão antiga
 docker compose build webserver
 docker compose up -d webserver
 ```
+
+### Testado com sucesso
+
+- ✅ Migração de 4.2.6 para 4.5.5
+- ✅ Migração de 5.2.x para 5.3.x
 
 ---
 

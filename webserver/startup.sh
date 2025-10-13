@@ -98,13 +98,21 @@ if [ ! -f "/opt/e-SUS/webserver/standalone.sh" ]; then
     exit 1
   fi
 
+  # Preparar parâmetros de instalação
+  INSTALL_PARAMS="-console -url=${DB_URL} -username=${DB_USER} -password=${DB_PASSWORD}"
+
+  # Verificar modo de treinamento
+  if [ "${ESUS_TRAINING_MODE}" = "true" ]; then
+    echo "=== Modo TREINAMENTO ativado ==="
+    INSTALL_PARAMS="${INSTALL_PARAMS} -treinamento"
+  else
+    echo "=== Modo PRODUÇÃO ativado ==="
+  fi
+
   # Instalar o eSUS (banco já foi testado acima)
   cd /home/downloads
   echo "Instalando eSUS com banco de dados: ${DB_URL}"
-  echo "s" | java -jar eSUS-AB-PEC.jar -console \
-    -url="${DB_URL}" \
-    -username="${DB_USER}" \
-    -password="${DB_PASSWORD}"
+  echo "s" | java -jar eSUS-AB-PEC.jar ${INSTALL_PARAMS}
 
   # Extrair o migrador
   echo "Extraindo migrador..."
