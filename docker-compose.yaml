@@ -2,6 +2,8 @@ services:
   database:
     image: esus_database:1.0.0
     build: database
+    ports:
+      - "5434:5432" # host:container
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-esus}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
