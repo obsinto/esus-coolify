@@ -35,7 +35,8 @@ ENV TZ=Etc/GMT+4
 
 #Copia e dá permissão de execução ao script de inicializacão.
 COPY startup.sh /opt
-RUN chmod +x /opt/startup.sh
+COPY configure-logging.sh /opt
+RUN chmod +x /opt/startup.sh /opt/configure-logging.sh
 
 WORKDIR /home/downloads
 RUN wget -O eSUS-AB-PEC.jar ${URL_DOWNLOAD_ESUS} --no-check-certificate

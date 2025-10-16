@@ -122,6 +122,11 @@ if [ ! -f "/opt/e-SUS/webserver/standalone.sh" ]; then
   echo "=== Instalação concluída! ==="
 fi
 
+# Configurar logging após instalação
+if [ -x "/opt/configure-logging.sh" ]; then
+  /opt/configure-logging.sh
+fi
+
 # Executar migração do banco de dados
 if [ -f "/opt/e-SUS/migrador.jar" ]; then
   echo "=== Executando migrações do banco de dados ==="

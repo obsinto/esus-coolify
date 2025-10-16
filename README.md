@@ -124,6 +124,97 @@ sudo docker build \
 
 ---
 
+## Configuração de Logs do e-SUS PEC
+
+### Formato de Logs com Rotação Diária
+
+O sistema está configurado para gerar logs do e-SUS PEC com **rotação diária** usando o padrão `pec.log.yyyy-MM-dd.SSS`.
+
+**Arquivo de configuração:** `/opt/e-SUS/webserver/configuration/log4j.properties`
+
+**Localização dos logs:** `/opt/e-SUS/webserver/standalone/log/`
+
+### Configuração Aplicada Automaticamente
+
+Durante a primeira inicialização do container, o script `configure-logging.sh` aplica automaticamente a configuração de logging:
+
+```properties
+log4j.appender.file=org.apache.log4j.DailyRollingFileAppender
+log4j.appender.file.file=pec.log
+log4j.appender.file.DatePattern='.'yyyy-MM-dd'.'SSS
+```
+
+### Acessando os Logs
+
+**Ver logs em tempo real:**
+```bash
+# Logs do Docker (stdout)
+docker compose logs -f webserver
+
+# Entrar no container e ver logs do eSUS
+docker compose exec webserver sh
+cd /opt/e-SUS/webserver/standalone/log
+ls -lh
+tail -f pec.log
+```
+
+**Copiar logs para o host:**
+```bash
+# Copiar log atual
+docker compose cp webserver:/opt/e-SUS/webserver/standalone/log/pec.log ./pec.log
+
+# Copiar todos os logs
+docker compose cp webserver:/opt/e-SUS/webserver/standalone/log/. ./logs/
+```
+
+### Persistir Logs no Host (Opcional)
+
+Para mapear os logs diretamente no host, adicione no `docker-compose.yaml`:
+
+```yaml
+webserver:
+  volumes:
+    - ./logs:/opt/e-SUS/webserver/standalone/log
+```
+
+Depois rebuild e restart:
+```bash
+docker compose down
+docker compose up -d
+```
+
+### Personalizar Configuração de Logs
+
+Para modificar a configuração de logging:
+
+1. **Editar o arquivo:** `webserver/configure-logging.sh`
+2. **Rebuild da imagem:**
+   ```bash
+   docker compose down webserver
+   docker compose build webserver
+   docker compose up -d webserver
+   ```
+
+### Observações sobre Compressão (.gz)
+
+O `DailyRollingFileAppender` do Log4j padrão **não comprime automaticamente** os logs em `.gz`.
+
+Para obter compressão automática, considere:
+
+1. **Usar Log4j2** (requer modificação do eSUS PEC)
+2. **Script de compressão manual:**
+   ```bash
+   # Dentro do container
+   gzip /opt/e-SUS/webserver/standalone/log/pec.log.*
+   ```
+3. **Cron job no host:**
+   ```bash
+   # Adicionar no crontab
+   0 1 * * * gzip /caminho/para/logs/pec.log.* 2>/dev/null
+   ```
+
+---
+
 ## Backup e Restauração do Banco de Dados
 
 ### Backups Automáticos (Recomendado)
