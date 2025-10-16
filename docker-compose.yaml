@@ -31,6 +31,8 @@ services:
       context: webserver
       args:
         - URL_DOWNLOAD_ESUS=${URL_DOWNLOAD_ESUS:-https://arquivos.esusab.ufsc.br/PEC/1af9b7ee9c3886bd/5.3.21/eSUS-AB-PEC-5.3.21-Linux64.jar}
+    ports:  # ✅ CORRETO - no mesmo nível de build
+      - "8089:8080" # host:container
     environment:
       - APP_DB_URL=jdbc:postgresql://database:5432/${POSTGRES_DB:-esus}
       - APP_DB_USER=${POSTGRES_USER:-postgres}
@@ -38,8 +40,7 @@ services:
       - ESUS_TRAINING_MODE=${ESUS_TRAINING_MODE:-false}
     expose:
       - "8080"
-    labels:
-
+    labels: {}  # Adicione labels se necessário, ou remova essa linha
     depends_on:
       database:
         condition: service_healthy
@@ -50,7 +51,6 @@ services:
       start_period: 120s
       timeout: 10s
     restart: unless-stopped
-
 
 volumes:
   postgres_data:

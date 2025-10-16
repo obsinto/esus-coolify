@@ -11,12 +11,16 @@ ENV POSTGRES_PASSWORD esus
 #     pip3 install awscli && \
 #     rm -rf /var/cache/apk/*
 
-# Copiar scripts de backup
+# Copiar scripts de backup e entrypoint
 COPY backup.sh /usr/local/bin/backup.sh
-COPY init-cron.sh /docker-entrypoint-initdb.d/init-cron.sh
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Tornar scripts executáveis
 RUN chmod +x /usr/local/bin/backup.sh && \
-    chmod +x /docker-entrypoint-initdb.d/init-cron.sh
+    chmod +x /usr/local/bin/entrypoint.sh
+
+# Usar entrypoint customizado que inicia o cron
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["postgres"]
 
 EXPOSE 5432
