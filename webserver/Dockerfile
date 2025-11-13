@@ -9,16 +9,8 @@ ARG APP_DB_PASSWORD="esus"
 
 RUN echo " Argumentos da build ->  ${APP_DB_URL} - ${APP_DB_USER} - ${APP_DB_PASSWORD}"
 
-#Atualiza a sources.list do Debian para poder instalar as fonts do windows.
-RUN cat <<EOF > /etc/apt/sources.list
-deb http://deb.debian.org/debian bullseye main contrib non-free
-deb-src http://deb.debian.org/debian bullseye main contrib non-free
-deb http://deb.debian.org/debian-security/ bullseye-security main contrib non-free
-deb-src http://deb.debian.org/debian-security/ bullseye-security main contrib non-free
-deb http://deb.debian.org/debian bullseye-updates main contrib non-free
-deb-src http://deb.debian.org/debian bullseye-updates main contrib non-free
-EOF
-RUN apt update
+#Atualiza repositórios e instala as dependências necessárias
+RUN apt-get update && apt-get upgrade -y
 RUN apt-get install -y ttf-mscorefonts-installer
 #Instala dependências necessárias
 RUN apt-get install -y init
